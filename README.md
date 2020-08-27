@@ -11,7 +11,7 @@ By omitting the options, you get online help.
 
 `-i <filename>` input filename
 
-With this option you can specify the image file to be processed. The supported input formats are as follows:
+With this option you can specify the image file(s) to be processed (up to 256 files). When multiple files are given, each image will be read and put at the end of the set of tiles. The supported input formats are as follows:
 
  * JPEG (12 bpc not supported)
  * PNG 1...16 bpc
@@ -29,6 +29,16 @@ With this option you can indicate the name of the file where the tile(s) will be
  * .bin - for charset definitition
 
 ## OPTIONS
+
+`-g <filename>` generate C header of tile offset
+
+If this option is given, a C header file will be created. In this file will be defined some constants, that are useful to access to each tile generated:
+  * `_TILES_` : used to isolate the C header file, to avoid multiple include file;
+  * `TILE_START` : the index of the first tile of the tile set (normally: 0);
+  * `TILE_name` : the index of the first tile for the image `name` (the name is generated based on the original file name); 
+  * `TILE_name_WIDTH` : the width of the image `name`, in term of tiles;
+  * `TILE_name_HEIGHT` : the height of the image `name`, in term of tiles;
+  * `TILE_COUNT` : the number of tiles present into the generated file.
 
 `-l <lum>`      threshold luminance
 

@@ -22,6 +22,10 @@
  ** RESIDENT VARIABLES SECTION
  ****************************************************************************/
 
+// Maximum number of images
+
+#define MAX_FILENAMES                   256
+
 // Error levels.
 
 #define ERL_WRONG_OPTIONS               1
@@ -31,6 +35,7 @@
 #define ERL_CANNOT_OPEN_OUTPUT          6
 #define ERL_CANNOT_CONVERT_WIDTH        7
 #define ERL_CANNOT_CONVERT_HEIGHT       8
+#define ERL_CANNOT_OPEN_HEADER          9
 
 // These are the default values for running the program.
 
@@ -46,11 +51,31 @@ Configuration configuration = {
 
 // Pointer to the name of the file with the image to be processed.
 
-char* filename_in = NULL;
+char* filename_in[MAX_FILENAMES];
+
+// Array with starting tile for each image
+
+int starting_tile[MAX_FILENAMES];
+
+// Array with widths (in tiles) for each image
+
+int width_in_tiles[MAX_FILENAMES];
+
+// Array with heights (in tiles) for each image
+
+int height_in_tiles[MAX_FILENAMES];
+
+// Count of images.
+
+int filename_in_count = 0;
 
 // Pointer to the name of the file with the tile data.
 
 char* filename_out = NULL;
+
+// Pointer to the name of the file with the C headers
+
+char* filename_header = NULL;
 
 // Verbose?
 
@@ -84,7 +109,8 @@ void usage_and_exit(int _level, int _argc, char* _argv[]) {
     printf("[mandatory]\n");
     printf("\n");
     printf(" -i <filename> input filename\n");
-    printf("                  supported formats: \n");
+    printf("                  More than one file can be converted.\n");
+    printf("                  Supported formats: \n");
     printf("                    JPEG (12 bpc not supported)\n");
     printf("                    PNG 1...16 bpc\n");
     printf("                    TGA\n");
@@ -98,6 +124,7 @@ void usage_and_exit(int _level, int _argc, char* _argv[]) {
     printf("\n");
     printf("[optional]\n");
     printf("\n");
+    printf(" -g <filename> generate C headers of tile offsets \n");
     printf(" -l <lum>      threshold luminance\n");
     printf(" -R            reverse luminance threshold\n");
     printf(" ");
@@ -123,7 +150,7 @@ void parse_options(int _argc, char* _argv[]) {
 
             switch (_argv[i][1]) {
                 case 'i': // "-i <filename>"
-                    filename_in = _argv[i + 1];
+                    filename_in[filename_in_count++] = _argv[i + 1];
                     ++i;
                     break;
                 case 'o': // "-o <filename>"
@@ -142,6 +169,10 @@ void parse_options(int _argc, char* _argv[]) {
                     break;
                 case 'q': // "-q"
                     verbose = 0;
+                    break;
+                case 'g': // "-g"
+                    filename_header = _argv[i + 1];
+                    ++i;
                     break;
                 default:
                     printf("Unknown option: %s", _argv[i]);
@@ -189,14 +220,32 @@ void convert_image_into_tiles(unsigned char *_source, Configuration * _configura
     // Color of the pixel to convert
     RGB rgb;
 
-    // Calculate the surface area, in terms of tiles
-    _output->tiles_count = _configuration->width_tiles * _configuration->height_tiles;
+    int previous_tiles_count = _output->tiles_count;
+    int actual_tiles_count = _configuration->width_tiles * _configuration->height_tiles;
 
-    // Allocate enough memory
-    _output->tiles = malloc(_output->tiles_count * 8);
+    if (_output->tiles_count == 0) {
 
-    // Clear the tiles.
-    memset(_output->tiles, 0, _output->tiles_count * 8);
+        // Calculate the surface area, in terms of tiles
+        _output->tiles_count = actual_tiles_count;
+
+        // Allocate enough memory
+        _output->tiles = malloc(_output->tiles_count * 8);
+
+        // Clear the tiles.
+        memset(_output->tiles, 0, _output->tiles_count * 8);
+
+    } else {
+
+        // Update the surface area, in terms of tiles
+        _output->tiles_count += actual_tiles_count;
+
+        // Reallocate memory
+        _output->tiles = realloc(_output->tiles, _output->tiles_count * 8);
+
+        // Clear the tiles.
+        memset(_output->tiles + previous_tiles_count*8, 0, actual_tiles_count * 8);
+
+    }
 
     // Loop for all the source surface.
     for (image_y = 0; image_y < _configuration->height; ++image_y) {
@@ -222,11 +271,11 @@ void convert_image_into_tiles(unsigned char *_source, Configuration * _configura
 
                 // Inversion of "on"-"off" meaning.
                 if (_configuration->reverse) {
-                    *(_output->tiles + offset) &= ~bitmask;
+                    *(_output->tiles + ( previous_tiles_count * 8 ) + offset) &= ~bitmask;
                     printf(" ");
                 }
                 else {
-                    *(_output->tiles + offset) |= bitmask;
+                    *(_output->tiles + ( previous_tiles_count * 8 ) + offset) |= bitmask;
                     printf("*");
                 }
             }
@@ -234,11 +283,11 @@ void convert_image_into_tiles(unsigned char *_source, Configuration * _configura
 
                 // Inversion of "on"-"off" meaning.
                 if (!_configuration->reverse) {
-                    *(_output->tiles + offset) &= ~bitmask;
+                    *(_output->tiles + ( previous_tiles_count * 8 ) + offset) &= ~bitmask;
                     printf(" ");
                 }
                 else {
-                    *(_output->tiles + offset) |= bitmask;
+                    *(_output->tiles + ( previous_tiles_count * 8 ) + offset) |= bitmask;
                     printf("*");
                 }
             }
@@ -250,15 +299,19 @@ void convert_image_into_tiles(unsigned char *_source, Configuration * _configura
 
     }
 
+    printf("\n");
+    printf("\n");
 }
 
 // Main function
 
 int main(int _argc, char *_argv[]) {
 
+    int i = 0;
+
     parse_options(_argc, _argv);
 
-    if (filename_in == NULL) {
+    if (filename_in_count == 0 ) {
         printf("Missing input filename.\n");
         usage_and_exit(ERL_MISSING_INPUT_FILENAME, _argc, _argv);
     }
@@ -269,38 +322,55 @@ int main(int _argc, char *_argv[]) {
     }
 
     if (verbose) {
-        printf("Input image ................. %s\n", filename_in);
+        for (i = 0; i < filename_in_count; ++i) {
+            printf("Input image ................. %s\n", filename_in[i]);
+        }
         printf("Output tile(s) .............. %s\n", filename_out);
     }
 
-    unsigned char *source = stbi_load(filename_in, &configuration.width, &configuration.height, &configuration.depth, 0);
-
-    if (source == NULL) {
-        printf("Unable to open file %s\n", filename_in);
-        usage_and_exit(ERL_CANNOT_OPEN_INPUT, _argc, _argv);
-    }
-
-    configuration.width_tiles = configuration.width >> 3;
-
-    if ( (configuration.width & 0x08 ) != 0 ) {
-        printf("Cannot convert images with width not multiple of 8 pixels.\n");
-        usage_and_exit(ERL_CANNOT_CONVERT_WIDTH, _argc, _argv);
-    }
-
-    configuration.height_tiles = configuration.height >> 3;
-
-    if ((configuration.height & 0x08) != 0) {
-        printf("Cannot convert images with height not multiple of 8 pixels.\n");
-        usage_and_exit(ERL_CANNOT_CONVERT_HEIGHT, _argc, _argv);
-    }
-
-    if (verbose) {
-        printf(" %s: (%dx%d, %d bpp) -> (%dx%d, 1 bpp)\n", filename_in, configuration.width, configuration.height, configuration.depth, configuration.width_tiles, configuration.height_tiles );
-    }
-
     Output result;
-    convert_image_into_tiles(source, &configuration, &result);
-    stbi_image_free(source);
+    result.tiles_count = 0;
+
+    for (i = 0; i < filename_in_count; ++i) {
+
+        configuration.width = 0;
+        configuration.height = 0;
+        configuration.depth = 3;
+
+        unsigned char* source = stbi_load(filename_in[i], &configuration.width, &configuration.height, &configuration.depth, 0);
+
+        if (source == NULL) {
+            printf("Unable to open file %s\n", filename_in[i]);
+            usage_and_exit(ERL_CANNOT_OPEN_INPUT, _argc, _argv);
+        }
+
+        configuration.width_tiles = configuration.width >> 3;
+
+        if ((configuration.width & 0x07) != 0) {
+            printf("Cannot convert images with width (%d) not multiple of 8 pixels.\n", configuration.width);
+            usage_and_exit(ERL_CANNOT_CONVERT_WIDTH, _argc, _argv);
+        }
+
+        configuration.height_tiles = configuration.height >> 3;
+
+        if ((configuration.height & 0x07) != 0) {
+            printf("Cannot convert images with height (%d) not multiple of 8 pixels.\n", configuration.height);
+            usage_and_exit(ERL_CANNOT_CONVERT_HEIGHT, _argc, _argv);
+        }
+
+        if (verbose) {
+            printf(" %s: (%dx%d, %d bpp) -> (%dx%d, 1 bpp)\n", filename_in[i], configuration.width, configuration.height, configuration.depth, configuration.width_tiles, configuration.height_tiles);
+        }
+
+        width_in_tiles[i] = configuration.width_tiles;
+        height_in_tiles[i] = configuration.height_tiles;
+        starting_tile[i] = result.tiles_count;
+
+        convert_image_into_tiles(source, &configuration, &result);
+
+        stbi_image_free(source);
+
+    }
 
     FILE *handle = fopen(filename_out, "w+b");
     if (handle == NULL) {
@@ -310,5 +380,35 @@ int main(int _argc, char *_argv[]) {
 
     fwrite(result.tiles, 8, result.tiles_count, handle);
     fclose(handle);
+
+    if (filename_header != NULL) {
+        unsigned char buffer[42];
+        FILE* handle = fopen(filename_header, "w+t");
+        if (handle == NULL) {
+            printf("Unable to open file %s\n", filename_header);
+            usage_and_exit(ERL_CANNOT_OPEN_HEADER, _argc, _argv);
+        }
+        fprintf(handle, "#ifndef _TILES_\n");
+        fprintf(handle, "\n\t#define TILE_START              0\n");
+        for (i = 0; i < filename_in_count; ++i) {
+            unsigned char* tilename = basename(filename_in[i]);
+            unsigned char* sep = strrchr(tilename, '_');
+            unsigned char* dot = strchr(tilename, '.');
+            *dot = 0;
+            if (sep == NULL) sep = tilename;
+            ++sep;
+            sep = strupr(sep);
+            sprintf(buffer, "%d", starting_tile[i]);
+            fprintf(handle, "\n\t#define TILE_%s%*s\n", sep, (20-strlen(sep)), buffer);
+            sprintf(buffer, "%d", width_in_tiles[i]);
+            fprintf(handle, "\t#define TILE_%s_WIDTH%*s\n", sep, (14 - strlen(sep)), buffer);
+            sprintf(buffer, "%d", height_in_tiles[i]);
+            fprintf(handle, "\t#define TILE_%s_HEIGHT%*s\n", sep, (13 - strlen(sep)), buffer);
+        }
+        sprintf(buffer, "%d", result.tiles_count);
+        fprintf(handle, "\n\t#define TILE_COUNT%*s\n", 15, buffer);
+        fprintf(handle, "#endif\n");
+        fclose(handle);
+    }
 
 }
