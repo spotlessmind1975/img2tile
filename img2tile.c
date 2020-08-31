@@ -382,14 +382,15 @@ int main(int _argc, char *_argv[]) {
     fclose(handle);
 
     if (filename_header != NULL) {
-        unsigned char buffer[42];
+        unsigned char buffer[80];
+        sprintf(buffer, "%d", 0);
         FILE* handle = fopen(filename_header, "w+t");
         if (handle == NULL) {
             printf("Unable to open file %s\n", filename_header);
             usage_and_exit(ERL_CANNOT_OPEN_HEADER, _argc, _argv);
         }
         fprintf(handle, "#ifndef _TILES_\n");
-        fprintf(handle, "\n\t#define TILE_START              0\n");
+        fprintf(handle, "\n\t#define TILE_START%*s\n", 45, buffer);
         for (i = 0; i < filename_in_count; ++i) {
             unsigned char* tilename = basename(filename_in[i]);
             unsigned char* sep = strrchr(tilename, '_');
@@ -399,14 +400,14 @@ int main(int _argc, char *_argv[]) {
             ++sep;
             sep = strupr(sep);
             sprintf(buffer, "%d", starting_tile[i]);
-            fprintf(handle, "\n\t#define TILE_%s%*s\n", sep, (20-strlen(sep)), buffer);
+            fprintf(handle, "\n\t#define TILE_%s%*s\n", sep, (40-strlen(sep)), buffer);
             sprintf(buffer, "%d", width_in_tiles[i]);
-            fprintf(handle, "\t#define TILE_%s_WIDTH%*s\n", sep, (14 - strlen(sep)), buffer);
+            fprintf(handle, "\t#define TILE_%s_WIDTH%*s\n", sep, (34 - strlen(sep)), buffer);
             sprintf(buffer, "%d", height_in_tiles[i]);
-            fprintf(handle, "\t#define TILE_%s_HEIGHT%*s\n", sep, (13 - strlen(sep)), buffer);
+            fprintf(handle, "\t#define TILE_%s_HEIGHT%*s\n", sep, (33 - strlen(sep)), buffer);
         }
         sprintf(buffer, "%d", result.tiles_count);
-        fprintf(handle, "\n\t#define TILE_COUNT%*s\n", 15, buffer);
+        fprintf(handle, "\n\t#define TILE_COUNT%*s\n", 45, buffer);
         fprintf(handle, "#endif\n");
         fclose(handle);
     }
