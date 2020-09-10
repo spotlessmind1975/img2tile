@@ -272,11 +272,15 @@ void convert_image_into_tiles(unsigned char *_source, Configuration * _configura
                 // Inversion of "on"-"off" meaning.
                 if (_configuration->reverse) {
                     *(_output->tiles + ( previous_tiles_count * 8 ) + offset) &= ~bitmask;
-                    printf(" ");
+                    if (verbose) {
+                        printf(" ");
+                    }
                 }
                 else {
                     *(_output->tiles + ( previous_tiles_count * 8 ) + offset) |= bitmask;
-                    printf("*");
+                    if (verbose) {
+                        printf("*");
+                    }
                 }
             }
             else {
@@ -284,23 +288,31 @@ void convert_image_into_tiles(unsigned char *_source, Configuration * _configura
                 // Inversion of "on"-"off" meaning.
                 if (!_configuration->reverse) {
                     *(_output->tiles + ( previous_tiles_count * 8 ) + offset) &= ~bitmask;
-                    printf(" ");
+                    if (verbose) {
+                        printf(" ");
+                    }
                 }
                 else {
                     *(_output->tiles + ( previous_tiles_count * 8 ) + offset) |= bitmask;
-                    printf("*");
+                    if (verbose) {
+                        printf("*");
+                    }
                 }
             }
 
             _source += _configuration->depth;
 
         }
-        printf("\n");
+        if (verbose) {
+            printf("\n");
+        }
 
     }
 
-    printf("\n");
-    printf("\n");
+    if (verbose) {
+        printf("\n");
+        printf("\n");
+    }
 }
 
 // Main function
