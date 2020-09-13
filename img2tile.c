@@ -46,7 +46,8 @@ Configuration configuration = {
     0,  /* reverse */
     1,  /* width_tiles */
     1,  /* height_tiles */
-    1   /* luminance_threshold */
+    1,  /* luminance_threshold */
+    0   /* bank number */
 };
 
 // Pointer to the name of the file with the image to be processed.
@@ -124,6 +125,7 @@ void usage_and_exit(int _level, int _argc, char* _argv[]) {
     printf("\n");
     printf("[optional]\n");
     printf("\n");
+    printf(" -b <number>   set the bank number (used only with '-g')\n");
     printf(" -g <filename> generate C headers of tile offsets \n");
     printf(" -l <lum>      threshold luminance\n");
     printf(" -R            reverse luminance threshold\n");
@@ -159,6 +161,10 @@ void parse_options(int _argc, char* _argv[]) {
                     break;
                 case 'l': // "-l <luminance>"
                     configuration.luminance_threshold = atoi(_argv[i + 1]);
+                    ++i;
+                    break;
+                case 'b': // "-b <number>"
+                    configuration.bank = atoi(_argv[i + 1]);
                     ++i;
                     break;
                 case 'R': // "-R"
@@ -401,8 +407,14 @@ int main(int _argc, char *_argv[]) {
             printf("Unable to open file %s\n", filename_header);
             usage_and_exit(ERL_CANNOT_OPEN_HEADER, _argc, _argv);
         }
-        fprintf(handle, "#ifndef _TILES_\n");
-        fprintf(handle, "\n\t#define TILE_START%*s\n", 45, buffer);
+        if (configuration.bank > 0) {
+            fprintf(handle, "#ifndef _TILES%d_\n", configuration.bank);
+            fprintf(handle, "\n\t#define TILE%d_START%*s\n", configuration.bank, 45, buffer);
+        }
+        else {
+            fprintf(handle, "#ifndef _TILES_\n");
+            fprintf(handle, "\n\t#define TILE_START%*s\n", 45, buffer);
+        }
         for (i = 0; i < filename_in_count; ++i) {
             unsigned char* tilename = basename(filename_in[i]);
             unsigned char* sep = strrchr(tilename, '_');
@@ -412,14 +424,30 @@ int main(int _argc, char *_argv[]) {
             ++sep;
             sep = strupr(sep);
             sprintf(buffer, "%d", starting_tile[i]);
-            fprintf(handle, "\n\t#define TILE_%s%*s\n", sep, (40-strlen(sep)), buffer);
+            if (configuration.bank > 0) {
+                fprintf(handle, "\n\t#define TILE%d_%s%*s\n", configuration.bank, sep, (40 - strlen(sep)), buffer);
+            } else {
+                fprintf(handle, "\n\t#define TILE_%s%*s\n", sep, (40 - strlen(sep)), buffer);
+            }
             sprintf(buffer, "%d", width_in_tiles[i]);
-            fprintf(handle, "\t#define TILE_%s_WIDTH%*s\n", sep, (34 - strlen(sep)), buffer);
+            if (configuration.bank > 0) {
+                fprintf(handle, "\t#define TILE%d_%s_WIDTH%*s\n", configuration.bank, sep, (34 - strlen(sep)), buffer);
+            } else {
+                fprintf(handle, "\t#define TILE_%s_WIDTH%*s\n", sep, (34 - strlen(sep)), buffer);
+            }
             sprintf(buffer, "%d", height_in_tiles[i]);
-            fprintf(handle, "\t#define TILE_%s_HEIGHT%*s\n", sep, (33 - strlen(sep)), buffer);
+            if (configuration.bank > 0) {
+                fprintf(handle, "\t#define TILE%d_%s_HEIGHT%*s\n", configuration.bank, sep, (33 - strlen(sep)), buffer);
+            } else {
+                fprintf(handle, "\t#define TILE_%s_HEIGHT%*s\n", sep, (33 - strlen(sep)), buffer);
+            }
         }
         sprintf(buffer, "%d", result.tiles_count);
-        fprintf(handle, "\n\t#define TILE_COUNT%*s\n", 45, buffer);
+        if (configuration.bank > 0) {
+            fprintf(handle, "\n\t#define TILE%d_COUNT%*s\n", configuration.bank, 45, buffer);
+        } else {
+            fprintf(handle, "\n\t#define TILE_COUNT%*s\n", 45, buffer);
+        }
         fprintf(handle, "#endif\n");
         fclose(handle);
     }

@@ -41,6 +41,8 @@
 
         int luminance_threshold;
 
+        int bank;
+
     } Configuration;
 
     // This structure maintain the result of conversion operation.
