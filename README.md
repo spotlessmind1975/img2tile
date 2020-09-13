@@ -30,6 +30,10 @@ With this option you can indicate the name of the file where the tile(s) will be
 
 ## OPTIONS
 
+`-b <number>`   set the bank number (used only with `-g`)
+
+It is possible to indicate on which bank of characters these tiles will be loaded. The number entered will be used in the generation of C source codes. In particular, the number put here will be added to the symbols `_TILES_` / `_TILE_name` (as: `_TILES<number>_` / `_TILE<number>_name`). For backwards compatibility, no number will be added for bank number zero. So `-b 0` is equal to not specifying the `-b` option.
+
 `-g <filename>` generate C header of tile offset
 
 If this option is given, a C header file will be created. In this file will be defined some constants, that are useful to access to each tile generated:
