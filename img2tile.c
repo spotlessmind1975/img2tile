@@ -470,12 +470,12 @@ void convert_image_into_multicolor_tiles(unsigned char* _source, Configuration* 
                 };
             }
 
-            bitmask = colorIndex << (7 - ((image_x & 0x3) * 2));
+            bitmask = colorIndex << (6 - ((image_x & 0x3) * 2));
 
             *(_output->tiles + (previous_tiles_count * 8) + offset) |= bitmask;
 
             if (verbose) {
-                printf("%1.1d", colorIndex);
+                printf("%1.1d[%2.2x]", colorIndex, bitmask);
             }
 
             _source += _configuration->depth;
