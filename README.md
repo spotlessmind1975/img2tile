@@ -48,6 +48,10 @@ If this option is given, a C header file will be created. In this file will be d
 
 It is possible to indicate the luminance threshold, above which the source pixel is considered as "on" and below which the pixel is considered "off". A value of zero implies that all "on" pixels will be drawn. Conversely, a too high value of this parameter will result in a completely "off" image.
 
+`-m`            enable multicolor supprot
+
+It is possible to indicate if the tiles are to be created in "multicolor" mode. In this mode, the color index of each pixel is decided by the combination of two pixels and not just one. This implies that the output resolution will not be 8x8 pixels but 4x8 pixels, and so must be the input resolution. In other words: the width must be a multiple of 4 pixels (and not 8 pixels) and, moreover, no more than four different colors must be used for drawing. The assignment of the indices to the colors is carried out sequentially, from left to right and from top to bottom.
+
 `-q`            quiet execution
 
 This option disables any type of output, making the program suitable for running in a batch or makefile context.

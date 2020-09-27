@@ -36,6 +36,7 @@
 #define ERL_CANNOT_CONVERT_WIDTH        7
 #define ERL_CANNOT_CONVERT_HEIGHT       8
 #define ERL_CANNOT_OPEN_HEADER          9
+#define ERL_CANNOT_CONVERT_COLORS       10
 
 // These are the default values for running the program.
 
@@ -47,7 +48,8 @@ Configuration configuration = {
     1,  /* width_tiles */
     1,  /* height_tiles */
     1,  /* luminance_threshold */
-    0   /* bank number */
+    0,  /* bank number */
+    0   /* multicolor */
 };
 
 // Pointer to the name of the file with the image to be processed.
@@ -128,6 +130,7 @@ void usage_and_exit(int _level, int _argc, char* _argv[]) {
     printf(" -b <number>   set the bank number (used only with '-g')\n");
     printf(" -g <filename> generate C headers of tile offsets \n");
     printf(" -l <lum>      threshold luminance\n");
+    printf(" -m            enable multicolor support\n");
     printf(" -R            reverse luminance threshold\n");
     printf(" ");
 
@@ -176,6 +179,9 @@ void parse_options(int _argc, char* _argv[]) {
                 case 'q': // "-q"
                     verbose = 0;
                     break;
+                case 'm': // "-m"
+                    configuration.multicolor = 1;
+                    break;
                 case 'g': // "-g"
                     filename_header = _argv[i + 1];
                     ++i;
@@ -204,6 +210,24 @@ int calculate_luminance(RGB _a) {
     double blue = (double)_a.blue / 3;
 
     // Calculate luminance using Pitagora's Theorem
+    return (int)sqrt(pow(red, 2) + pow(green, 2) + pow(blue, 2));
+
+}
+
+// This function calculates the color distance between two colors(_a and _b).
+// By "distance" we mean the geometric distance between two points in a 
+// three-dimensional space, where each dimension corresponds to one of the 
+// components (red, green and blue). The returned value is normalized to 
+// the nearest 8-bit value.
+
+int calculate_distance(RGB _a, RGB _b) {
+
+    // Extract the vector's components.
+    double red = (double)_a.red - (double)_b.red;
+    double green = (double)_a.green - (double)_b.green;
+    double blue = (double)_a.blue - (double)_b.blue;
+
+    // Calculate distance using Pitagora's Theorem
     return (int)sqrt(pow(red, 2) + pow(green, 2) + pow(blue, 2));
 
 }
@@ -321,8 +345,155 @@ void convert_image_into_tiles(unsigned char *_source, Configuration * _configura
     }
 }
 
-// Main function
+// This function extract the "palette" of colors of the given image.
+int extract_color_palette(unsigned char* _source, Configuration* _configuration, RGB _palette[], int _palette_size) {
 
+    RGB rgb;
+
+    int image_x, image_y;
+
+    int usedPalette = 0;
+    int i = 0;
+    unsigned char* source = _source;
+    for (image_y = 0; image_y < _configuration->height; ++image_y) {
+        for (image_x = 0; image_x < _configuration->width; ++image_x) {
+            rgb.red = *source;
+            rgb.green = *(source + 1);
+            rgb.blue = *(source + 2);
+
+            for (i = 0; i < usedPalette; ++i) {
+                if (_palette[i].red == rgb.red && _palette[i].green == rgb.green && _palette[i].blue == rgb.blue) {
+                    break;
+                }
+            }
+
+            if (i >= usedPalette) {
+                _palette[usedPalette].red = rgb.red;
+                _palette[usedPalette].green = rgb.green;
+                _palette[usedPalette].blue = rgb.blue;
+                ++usedPalette;
+                if (usedPalette > _palette_size) {
+                    break;
+                }
+            }
+            source += 3;
+        }
+        if (usedPalette > _palette_size) {
+            break;
+        }
+    }
+
+    return usedPalette;
+
+}
+
+// This function convert an image of (W,H) pixels in a set of (WT,HT) multicolor
+// tiles. Each tile will have the half of horizontal resolution but four colors
+// for each pixel. Tiles will be drawn in a "contiguous" way, i.e. each row of 
+// multicolor tiles will be drawn sequentially, and each column for each row 
+// the same. 
+void convert_image_into_multicolor_tiles(unsigned char* _source, Configuration* _configuration, Output* _output) {
+
+    // Position of the pixel in the original image
+    int image_x, image_y;
+
+    // Position of the pixel, in terms of tiles
+    int tile_x, tile_y;
+
+    // Position of the pixel, in terms of offset and bitmask
+    int offset, bitmask;
+
+    // Color of the pixel to convert
+    RGB rgb;
+
+    int previous_tiles_count = _output->tiles_count;
+    int actual_tiles_count = _configuration->width_tiles * _configuration->height_tiles;
+
+    int i = 0;
+
+    // Normalize the input image based on colors.
+    RGB palette[256];
+    int usedPalette = 0;
+    int minDistance, colorIndex;
+
+    usedPalette = extract_color_palette(_source, _configuration, palette, 256);
+
+    if (_output->tiles_count == 0) {
+
+        // Calculate the surface area, in terms of tiles
+        _output->tiles_count = actual_tiles_count;
+
+        // Allocate enough memory
+        _output->tiles = malloc(_output->tiles_count * 8);
+
+        // Clear the tiles.
+        memset(_output->tiles, 0, _output->tiles_count * 8);
+
+    }
+    else {
+
+        // Update the surface area, in terms of tiles
+        _output->tiles_count += actual_tiles_count;
+
+        // Reallocate memory
+        _output->tiles = realloc(_output->tiles, _output->tiles_count * 8);
+
+        // Clear the tiles.
+        memset(_output->tiles + previous_tiles_count * 8, 0, actual_tiles_count * 8);
+
+    }
+
+    // Loop for all the source surface.
+    for (image_y = 0; image_y < _configuration->height; ++image_y) {
+        for (image_x = 0; image_x < _configuration->width; ++image_x) {
+
+            // Take the color of the pixel
+            rgb.red = *_source;
+            rgb.green = *(_source + 1);
+            rgb.blue = *(_source + 2);
+
+            // Calculate the relative tile
+            tile_y = (image_y >> 3);
+            tile_x = (image_x >> 2);
+
+            // Calculate the offset starting from the tile surface area
+            // and the bit to set.
+            offset = (tile_y * 8 * _configuration->width_tiles) + (tile_x * 8) + (image_y & 0x07);
+
+            minDistance = 0xffff;
+            colorIndex = 0;
+
+            for (i = 0; i < 4; ++i) {
+                if (calculate_distance(rgb, palette[i]) < minDistance) {
+                    minDistance = calculate_distance(rgb, palette[i]);
+                    colorIndex = i;
+                };
+            }
+
+            bitmask = colorIndex << (7 - ((image_x & 0x3) * 2));
+
+            *(_output->tiles + (previous_tiles_count * 8) + offset) |= bitmask;
+
+            if (verbose) {
+                printf("%1.1d", colorIndex);
+            }
+
+            _source += _configuration->depth;
+
+        }
+        if (verbose) {
+            printf("\n");
+        }
+
+    }
+
+    if (verbose) {
+        printf("\n");
+        printf("\n");
+    }
+}
+
+// Main function
 int main(int _argc, char *_argv[]) {
 
     int i = 0;
@@ -362,29 +533,56 @@ int main(int _argc, char *_argv[]) {
             usage_and_exit(ERL_CANNOT_OPEN_INPUT, _argc, _argv);
         }
 
-        configuration.width_tiles = configuration.width >> 3;
-
-        if ((configuration.width & 0x07) != 0) {
-            printf("Cannot convert images with width (%d) not multiple of 8 pixels.\n", configuration.width);
-            usage_and_exit(ERL_CANNOT_CONVERT_WIDTH, _argc, _argv);
+        if (configuration.multicolor) {
+            if ((configuration.width & 0x03) != 0) {
+                printf("Cannot convert images with width (%d) not multiple of 4 pixels.\n", configuration.width);
+                usage_and_exit(ERL_CANNOT_CONVERT_WIDTH, _argc, _argv);
+            }
+            configuration.width_tiles = configuration.width >> 2;
+        } else {
+            if ((configuration.width & 0x07) != 0) {
+                printf("Cannot convert images with width (%d) not multiple of 8 pixels.\n", configuration.width);
+                usage_and_exit(ERL_CANNOT_CONVERT_WIDTH, _argc, _argv);
+            }
+            configuration.width_tiles = configuration.width >> 3;
         }
 
-        configuration.height_tiles = configuration.height >> 3;
 
-        if ((configuration.height & 0x07) != 0) {
-            printf("Cannot convert images with height (%d) not multiple of 8 pixels.\n", configuration.height);
-            usage_and_exit(ERL_CANNOT_CONVERT_HEIGHT, _argc, _argv);
+        if (configuration.multicolor) {
+            if ((configuration.height & 0x03) != 0) {
+                printf("Cannot convert images with height (%d) not multiple of 8 pixels.\n", configuration.height);
+                usage_and_exit(ERL_CANNOT_CONVERT_HEIGHT, _argc, _argv);
+            }
+            configuration.height_tiles = configuration.height >> 3;
+        } else {
+            if ((configuration.height & 0x07) != 0) {
+                printf("Cannot convert images with height (%d) not multiple of 8 pixels.\n", configuration.height);
+                usage_and_exit(ERL_CANNOT_CONVERT_HEIGHT, _argc, _argv);
+            }
+            configuration.height_tiles = configuration.height >> 3;
+        }
+
+        if (configuration.multicolor) {
+            RGB palette[256]; 
+            if (extract_color_palette(source, &configuration, palette, 256) > 4) {
+                printf("Cannot convert images with more than 4 colors.\n");
+                usage_and_exit(ERL_CANNOT_CONVERT_COLORS, _argc, _argv);
+            }
         }
 
         if (verbose) {
-            printf(" %s: (%dx%d, %d bpp) -> (%dx%d, 1 bpp)\n", filename_in[i], configuration.width, configuration.height, configuration.depth, configuration.width_tiles, configuration.height_tiles);
+            printf(" %s: (%dx%d, %d bpp) -> (%dx%d, %d bpp)\n", filename_in[i], configuration.width, configuration.height, configuration.depth, configuration.width_tiles, configuration.height_tiles, 1+configuration.multicolor );
         }
 
         width_in_tiles[i] = configuration.width_tiles;
         height_in_tiles[i] = configuration.height_tiles;
         starting_tile[i] = result.tiles_count;
 
-        convert_image_into_tiles(source, &configuration, &result);
+        if (configuration.multicolor) {
+            convert_image_into_multicolor_tiles(source, &configuration, &result);
+        } else {
+            convert_image_into_tiles(source, &configuration, &result);
+        }
 
         stbi_image_free(source);
 

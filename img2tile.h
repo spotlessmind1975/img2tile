@@ -43,6 +43,8 @@
 
         int bank;
 
+        int multicolor;
+
     } Configuration;
 
     // This structure maintain the result of conversion operation.
