@@ -513,7 +513,7 @@ void convert_image_into_multicolor_tiles(unsigned char* _source, Configuration* 
             *(_output->tiles + (previous_tiles_count * 8) + offset) |= bitmask;
 
             if (verbose) {
-                printf("%1.1d[%2.2x]", colorIndex, bitmask);
+                printf("%1.1d", colorIndex, bitmask);
             }
 
             _source += _configuration->depth;
@@ -658,18 +658,18 @@ int main(int _argc, char *_argv[]) {
         }
         if (configuration.bank > 0) {
             fprintf(handle, "#ifndef _TILES%d_\n", configuration.bank);
-            fprintf(handle, "\n\t#define TILE%d_START%*s\n", configuration.bank, 45, buffer);
+            fprintf(handle, "\n\t#define TILE%d_START%*s\n", configuration.bank, 35, buffer);
         }
         else {
             fprintf(handle, "#ifndef _TILES_\n");
-            fprintf(handle, "\n\t#define TILE_START%*s\n", 45, buffer);
+            fprintf(handle, "\n\t#define TILE_START%*s\n", 35, buffer);
         }
         if (configuration.multicolor) {
             for (i = 0; i < 4; ++i) {
                 if (configuration.bank > 0) {
-                    fprintf(handle, "\n\t#define TILE%d_COLOR%d%*sMR_COLOR_%s", configuration.bank, i, 39, " ", COLORS[nearestColorIndex[i]].name);
+                    fprintf(handle, "\n\t#define TILE%d_COLOR%d%*sMR_COLOR_%s", configuration.bank, i, 33, " ", COLORS[nearestColorIndex[i]].name);
                 } else {
-                    fprintf(handle, "\n\t#define TILE_COLOR%d%*sMR_COLOR_%s", i, 39, " ", COLORS[nearestColorIndex[i]].name);
+                    fprintf(handle, "\n\t#define TILE_COLOR%d%*sMR_COLOR_%s", i, 33, " ", COLORS[nearestColorIndex[i]].name);
                 }
             }
         }
@@ -703,9 +703,9 @@ int main(int _argc, char *_argv[]) {
         }
         sprintf(buffer, "%d", result.tiles_count);
         if (configuration.bank > 0) {
-            fprintf(handle, "\n\t#define TILE%d_COUNT%*s\n", configuration.bank, 45, buffer);
+            fprintf(handle, "\n\t#define TILE%d_COUNT%*s\n", configuration.bank, 36, buffer);
         } else {
-            fprintf(handle, "\n\t#define TILE_COUNT%*s\n", 45, buffer);
+            fprintf(handle, "\n\t#define TILE_COUNT%*s\n", 36, buffer);
         }
         fprintf(handle, "#endif\n");
         fclose(handle);
