@@ -22,6 +22,15 @@
         int blue;
     } RGB;
 
+    // This structure stores the name and the color components (red, blue 
+    // and green) of a pixel, 8 bits wide. This structure is used both to 
+    // represent the retrocomputer palette and to process input data from 
+    // image files.
+    typedef struct {
+        char name[32];
+        RGB color;
+    } NamedRGB;
+
     // This structure maintains the program's options, and used by the process 
     // of converting from image files to midres.
 

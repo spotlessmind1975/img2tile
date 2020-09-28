@@ -38,6 +38,44 @@
 #define ERL_CANNOT_OPEN_HEADER          9
 #define ERL_CANNOT_CONVERT_COLORS       10
 
+// This is the default palette for supported retrocomputers.
+// Data taken from: 
+// - https://lospec.com/palette-list/commodore64
+// - https://retroshowcase.gr/index.php?p=palette (color pick)
+
+NamedRGB COLORS[] = {
+    // C64 and VIC20 colors
+    { "BLACK", { 0x00, 0x00, 0x00 } },
+    { "WHITE", { 0xff, 0xff, 0xff } },
+    { "RED", { 0x9f, 0x4e, 0x44 } },
+    { "CYAN", { 0x6a, 0xbf, 0xc6 } },
+    { "VIOLET", { 0xa0, 0x57, 0xa3 } },
+    { "GREEN", { 0x5c, 0xab, 0x5e } },
+    { "BLUE", { 0x50, 0x45, 0x9b } },
+    { "YELLOW", { 0xc9, 0xd4, 0x87 } },
+    { "ORANGE", { 0xa1, 0x68, 0x3c } },
+    { "BROWN", { 0x6d, 0x54, 0x12 } },
+    { "LIGHT_RED", { 0xcb, 0x7e, 0x75 } },
+    { "DARK_GREY", { 0x62, 0x62, 0x62 } },
+    { "GREY", { 0x89, 0x89, 0x89 } },
+    { "LIGHT_GREEN", { 0x9a, 0xe2, 0x9b } },
+    { "LIGHT_BLUE", { 0x88, 0x7e, 0xcb } },
+    { "LIGHT_GREY", { 0xad, 0xad, 0xad } },
+    { "PURPLE", { 0xbc, 0x52, 0xcc } },
+    { "YELLOW_GREEN", { 0x61, 0x9e, 0x33 } },
+    { "PINK", { 0xbc, 0x61, 0x80 } },
+    { "BLUE_GREEN", { 0x43, 0x9e, 0x80 } },
+    { "LIGHT_BLUE", { 0x43, 0x90, 0xcc } },
+    { "DARK BLUE", { 0x9e, 0x61, 0xcc } },
+    { "LIGHT_GREEN", { 0xa6, 0x59 } },
+    { "MAGENTA", { 0xf9, 0x84, 0xe5 } },
+    { "LAVENDER", { 0xe6, 0xe6, 0xfa } },
+    { "GOLD", { 0xd4, 0xaf, 0x37 } },
+    { "TAN", { 0xd2, 0xb4, 0x8c } },
+    { "OLIVE_GREEN", { 0x55, 0x6b, 0x2f } },
+    { "PEACH", { 0xff, 0xda, 0xb9 } }
+};
+
 // These are the default values for running the program.
 
 Configuration configuration = {
@@ -496,7 +534,7 @@ void convert_image_into_multicolor_tiles(unsigned char* _source, Configuration* 
 // Main function
 int main(int _argc, char *_argv[]) {
 
-    int i = 0;
+    int i = 0, j = 0, k = 0;
 
     parse_options(_argc, _argv);
 
@@ -516,6 +554,9 @@ int main(int _argc, char *_argv[]) {
         }
         printf("Output tile(s) .............. %s\n", filename_out);
     }
+
+    RGB palette[256];
+    int nearestColorIndex[4];
 
     Output result;
     result.tiles_count = 0;
@@ -547,7 +588,6 @@ int main(int _argc, char *_argv[]) {
             configuration.width_tiles = configuration.width >> 3;
         }
 
-
         if (configuration.multicolor) {
             if ((configuration.height & 0x03) != 0) {
                 printf("Cannot convert images with height (%d) not multiple of 8 pixels.\n", configuration.height);
@@ -563,10 +603,21 @@ int main(int _argc, char *_argv[]) {
         }
 
         if (configuration.multicolor) {
-            RGB palette[256]; 
             if (extract_color_palette(source, &configuration, palette, 256) > 4) {
                 printf("Cannot convert images with more than 4 colors.\n");
                 usage_and_exit(ERL_CANNOT_CONVERT_COLORS, _argc, _argv);
+            }
+            for (j = 0; j < 4; ++j) {
+                int minDistance = 0xffff;
+                int minColorIndex = 0, distance = 0;
+                for (k = 0; k < sizeof(COLORS) / sizeof(NamedRGB); ++k) {
+                    distance = calculate_distance(palette[j], COLORS[k].color);
+                    if (distance < minDistance) {
+                        minColorIndex = k;
+                        minDistance = distance;
+                    }
+                }
+                nearestColorIndex[j] = minColorIndex;
             }
         }
 
@@ -613,6 +664,16 @@ int main(int _argc, char *_argv[]) {
             fprintf(handle, "#ifndef _TILES_\n");
             fprintf(handle, "\n\t#define TILE_START%*s\n", 45, buffer);
         }
+        if (configuration.multicolor) {
+            for (i = 0; i < 4; ++i) {
+                if (configuration.bank > 0) {
+                    fprintf(handle, "\n\t#define TILE%d_COLOR%d%*sMR_COLOR_%s", configuration.bank, i, 39, " ", COLORS[nearestColorIndex[i]].name);
+                } else {
+                    fprintf(handle, "\n\t#define TILE_COLOR%d%*sMR_COLOR_%s", i, 39, " ", COLORS[nearestColorIndex[i]].name);
+                }
+            }
+        }
+        fprintf(handle, "\n");
         for (i = 0; i < filename_in_count; ++i) {
             unsigned char* tilename = basename(filename_in[i]);
             unsigned char* sep = strrchr(tilename, '_');

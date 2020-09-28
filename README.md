@@ -44,6 +44,12 @@ If this option is given, a C header file will be created. In this file will be d
   * `TILE_name_HEIGHT` : the height of the image `name`, in term of tiles;
   * `TILE_COUNT` : the number of tiles present into the generated file.
 
+For multicolor tiles:
+  * `TILE_COLOR0` : first color;
+  * `TILE_COLOR1` : second color;
+  * `TILE_COLOR3` : third color;
+  * `TILE_COLOR4` : fourth color.
+
 `-l <lum>`      threshold luminance
 
 It is possible to indicate the luminance threshold, above which the source pixel is considered as "on" and below which the pixel is considered "off". A value of zero implies that all "on" pixels will be drawn. Conversely, a too high value of this parameter will result in a completely "off" image.
