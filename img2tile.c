@@ -768,4 +768,8 @@ int main(int _argc, char *_argv[]) {
         fclose(handle);
     }
 
+    if (verbose) {
+        printf("Wrote a total of %d tiles.\n\n", result.tiles_count);
+    }
+
 }
