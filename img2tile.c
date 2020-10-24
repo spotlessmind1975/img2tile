@@ -122,6 +122,10 @@ char* filename_header = NULL;
 
 int verbose = 0;
 
+// Debug?
+
+int debug = 0;
+
 /****************************************************************************
  ** RESIDENT FUNCTIONS SECTION
  ****************************************************************************/
@@ -166,6 +170,7 @@ void usage_and_exit(int _level, int _argc, char* _argv[]) {
     printf("[optional]\n");
     printf("\n");
     printf(" -b <number>   set the bank number (used only with '-g')\n");
+    printf(" -d            enable debugging\n");
     printf(" -g <filename> generate C headers of tile offsets \n");
     printf(" -l <lum>      threshold luminance\n");
     printf(" -m            enable multicolor support\n");
@@ -216,6 +221,9 @@ void parse_options(int _argc, char* _argv[]) {
                     break;
                 case 'q': // "-q"
                     verbose = 0;
+                    break;
+                case 'd': // "-d"
+                    debug = 1;
                     break;
                 case 'm': // "-m"
                     configuration.multicolor = 1;
@@ -393,6 +401,11 @@ int extract_color_palette(unsigned char* _source, Configuration* _configuration,
     int usedPalette = 0;
     int i = 0;
     unsigned char* source = _source;
+
+    if (verbose&&debug) {
+        printf("\nExtracting color palette from source image.\n\n");
+    }
+
     for (image_y = 0; image_y < _configuration->height; ++image_y) {
         for (image_x = 0; image_x < _configuration->width; ++image_x) {
             rgb.red = *source;
@@ -406,6 +419,9 @@ int extract_color_palette(unsigned char* _source, Configuration* _configuration,
             }
 
             if (i >= usedPalette) {
+                if (verbose&&debug) {
+                    printf(" ");
+                }
                 _palette[usedPalette].red = rgb.red;
                 _palette[usedPalette].green = rgb.green;
                 _palette[usedPalette].blue = rgb.blue;
@@ -413,11 +429,25 @@ int extract_color_palette(unsigned char* _source, Configuration* _configuration,
                 if (usedPalette > _palette_size) {
                     break;
                 }
+            } else {
+                if (verbose && debug) {
+                    printf("*");
+                }
             }
             source += 3;
         }
+        if (verbose) {
+            printf("\n");
+        }
         if (usedPalette > _palette_size) {
             break;
+        }
+    }
+
+    if (verbose && debug) {
+        printf("\n\nDetected %d different colors.\n", usedPalette);
+        for (i = 0; i < usedPalette; ++i) {
+            printf("%d) 0x%02.2x%02.2x%02.2x\n", i, _palette[i].red, _palette[i].green, _palette[i].blue );
         }
     }
 
@@ -607,17 +637,37 @@ int main(int _argc, char *_argv[]) {
                 printf("Cannot convert images with more than 4 colors.\n");
                 usage_and_exit(ERL_CANNOT_CONVERT_COLORS, _argc, _argv);
             }
+            if (verbose && debug) {
+                printf("\n\nCalculating nearest colors.\n");
+            }
             for (j = 0; j < 4; ++j) {
                 int minDistance = 0xffff;
                 int minColorIndex = 0, distance = 0;
                 for (k = 0; k < sizeof(COLORS) / sizeof(NamedRGB); ++k) {
                     distance = calculate_distance(palette[j], COLORS[k].color);
+                    if (verbose && debug) {
+                        printf("%d) %20.20s] 0x%02.2x%02.2x%02.2x => (%d) => 0x%02.2x%02.2x%02.2x\n", j, COLORS[k].name,
+                            palette[j].red, palette[j].green, palette[j].blue,
+                            distance,
+                            COLORS[k].color.red, COLORS[k].color.green, COLORS[k].color.blue);
+                    }
+
                     if (distance < minDistance) {
                         minColorIndex = k;
                         minDistance = distance;
                     }
                 }
+                if (verbose && debug) {
+                    printf("\n");
+                    printf("%d) 0x%02.2x%02.2x%02.2x => (%d) => 0x%02.2x%02.2x%02.2x\n", j,
+                            palette[j].red, palette[j].green, palette[j].blue, 
+                            minDistance,
+                            COLORS[minColorIndex].color.red, COLORS[minColorIndex].color.green, COLORS[minColorIndex].color.blue);
+                }
                 nearestColorIndex[j] = minColorIndex;
+            }
+            if (verbose && debug) {
+                printf("\n");
             }
         }
 
