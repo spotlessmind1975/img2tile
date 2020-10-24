@@ -653,8 +653,15 @@ int main(int _argc, char *_argv[]) {
                     }
 
                     if (distance < minDistance) {
-                        minColorIndex = k;
-                        minDistance = distance;
+                        for (i = 0; i < j; ++i) {
+                            if (nearestColorIndex[i] == k) {
+                                break;
+                            }
+                        }
+                        if (i >= j) {
+                            minColorIndex = k;
+                            minDistance = distance;
+                        }
                     }
                 }
                 if (verbose && debug) {
