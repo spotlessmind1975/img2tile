@@ -564,7 +564,7 @@ void convert_image_into_multicolor_tiles(unsigned char* _source, Configuration* 
 // Main function
 int main(int _argc, char *_argv[]) {
 
-    int i = 0, j = 0, k = 0;
+    int i = 0, j = 0, k = 0, m = 0;
 
     parse_options(_argc, _argv);
 
@@ -653,12 +653,12 @@ int main(int _argc, char *_argv[]) {
                     }
 
                     if (distance < minDistance) {
-                        for (i = 0; i < j; ++i) {
-                            if (nearestColorIndex[i] == k) {
+                        for (m = 0; m < j; ++m) {
+                            if (nearestColorIndex[m] == k) {
                                 break;
                             }
                         }
-                        if (i >= j) {
+                        if (m >= j) {
                             minColorIndex = k;
                             minDistance = distance;
                         }
