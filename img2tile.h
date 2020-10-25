@@ -54,6 +54,8 @@
 
         int multicolor;
 
+        int background;
+
     } Configuration;
 
     // This structure maintain the result of conversion operation.

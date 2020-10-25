@@ -87,7 +87,8 @@ Configuration configuration = {
     1,  /* height_tiles */
     1,  /* luminance_threshold */
     0,  /* bank number */
-    0   /* multicolor */
+    0,  /* multicolor */
+    -1  /* background */
 };
 
 // Pointer to the name of the file with the image to be processed.
@@ -144,9 +145,16 @@ char* basename(char* _path) {
 
 void usage_and_exit(int _level, int _argc, char* _argv[]) {
 
+    int i;
+
+    printf("\n");
+    printf("\n");
+    printf("------------------------------------------------------------\n");
     printf("img2tile - Utility to convert images into (a set of) tile(s)\n");
+    printf("------------------------------------------------------------\n");
     printf("Copyright(c) 2020 by Marco Spedaletti.\n");
     printf("Licensed under CC-BY-NC-SA\n\n");
+
     printf("Usage: %s [options]", _argv[0]);
     printf("\n");
     printf("options:\n");
@@ -169,6 +177,15 @@ void usage_and_exit(int _level, int _argc, char* _argv[]) {
     printf("\n");
     printf("[optional]\n");
     printf("\n");
+    printf(" -B <color>    select this color as background (color index 0)\n");
+    printf("                valid values for <color>:\n");
+    for (i = 0; i < sizeof(COLORS) / sizeof(NamedRGB); ++i) {
+        printf("                %12.12s (hex: 0x%2.2x%2.2x%2.2x - R: %d, G: %d, B: %d)\n",
+            COLORS[i].name,
+            COLORS[i].color.red, COLORS[i].color.green, COLORS[i].color.blue,
+            COLORS[i].color.red, COLORS[i].color.green, COLORS[i].color.blue
+            );
+    }
     printf(" -b <number>   set the bank number (used only with '-g')\n");
     printf(" -d            enable debugging\n");
     printf(" -g <filename> generate C headers of tile offsets \n");
@@ -188,7 +205,7 @@ void usage_and_exit(int _level, int _argc, char* _argv[]) {
 void parse_options(int _argc, char* _argv[]) {
 
     // Used as index.
-    int i;
+    int i, j, c;
 
     // We check for each option...
     for (i = 1; i < _argc; ++i) {
@@ -211,6 +228,20 @@ void parse_options(int _argc, char* _argv[]) {
                     break;
                 case 'b': // "-b <number>"
                     configuration.bank = atoi(_argv[i + 1]);
+                    ++i;
+                    break;
+                case 'B': // "-B <color>"
+                    c = sizeof(COLORS) / sizeof(NamedRGB);
+                    for (j = 0; j < c; ++j) {
+                        if (stricmp(_argv[i + 1], COLORS[j].name) == 0) {
+                            configuration.background = j;
+                            break;
+                        }
+                    }
+                    if (j == c) {
+                        printf("Unknown color: %s", _argv[i+1]);
+                        usage_and_exit(ERL_WRONG_OPTIONS, _argc, _argv);
+                    }
                     ++i;
                     break;
                 case 'R': // "-R"
@@ -639,6 +670,30 @@ int main(int _argc, char *_argv[]) {
             }
             if (verbose && debug) {
                 printf("\n\nCalculating nearest colors.\n");
+            }
+            if (configuration.background != -1) {
+                if (verbose && debug) {
+                    printf("\n\nStarting from background color.\n");
+                }
+                int minDistance = 0xffff;
+                int minColorIndex = 0, distance = 0;
+                for (k = 0; k < 4; ++k) {
+                    distance = calculate_distance(palette[k], COLORS[configuration.background].color);
+                    if (verbose && debug) {
+                        printf("%d) 0x%02.2x%02.2x%02.2x => (%d) => %20.20s] 0x%02.2x%02.2x%02.2x\n", configuration.background, 
+                            palette[k].red, palette[k].green, palette[k].blue,
+                            distance,
+                            COLORS[configuration.background].name, COLORS[configuration.background].color.red, COLORS[configuration.background].color.green, COLORS[configuration.background].color.blue);
+                    }
+
+                    if (distance < minDistance) {
+                        minColorIndex = k;
+                        minDistance = distance;
+                    }
+                }
+                RGB temp = palette[minColorIndex];
+                palette[minColorIndex] = palette[0];
+                palette[0] = temp;
             }
             for (j = 0; j < 4; ++j) {
                 int minDistance = 0xffff;
