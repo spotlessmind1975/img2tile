@@ -187,7 +187,7 @@ void usage_and_exit(int _level, int _argc, char* _argv[]) {
             );
     }
     printf(" -b <number>   set the bank number (used only with '-g')\n");
-    printf(" -d            enable debugging\n");
+    printf(" -d            enable debugging (used only with '-v')\n");
     printf(" -g <filename> generate C headers of tile offsets \n");
     printf(" -l <lum>      threshold luminance\n");
     printf(" -m            enable multicolor support\n");
