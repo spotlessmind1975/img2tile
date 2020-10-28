@@ -264,7 +264,7 @@ void parse_options(int _argc, char* _argv[]) {
                     ++i;
                     break;
                 default:
-                    printf("Unknown option: %s", _argv[i]);
+                    fprintf(stderr, "ERROR:: unknown option '%s'.\n", _argv[i]);
                     usage_and_exit(ERL_WRONG_OPTIONS, _argc, _argv);
             }
 
@@ -600,12 +600,12 @@ int main(int _argc, char *_argv[]) {
     parse_options(_argc, _argv);
 
     if (filename_in_count == 0 ) {
-        printf("Missing input filename.\n");
+        fprintf(stderr, "ERROR:: missing input filename.\n");
         usage_and_exit(ERL_MISSING_INPUT_FILENAME, _argc, _argv);
     }
 
     if (filename_out == NULL) {
-        printf("Missing output filename for luminance.\n");
+        fprintf(stderr, "ERROR:: missing output filename for luminance.\n");
         usage_and_exit(ERL_MISSING_OUTPUT_FILENAME, _argc, _argv);
     }
 
@@ -631,19 +631,19 @@ int main(int _argc, char *_argv[]) {
         unsigned char* source = stbi_load(filename_in[i], &configuration.width, &configuration.height, &configuration.depth, 0);
 
         if (source == NULL) {
-            printf("Unable to open file %s\n", filename_in[i]);
+            fprintf(stderr, "ERROR:%s: unable to open file\n", filename_in[i]);
             usage_and_exit(ERL_CANNOT_OPEN_INPUT, _argc, _argv);
         }
 
         if (configuration.multicolor) {
             if ((configuration.width & 0x03) != 0) {
-                printf("Cannot convert images with width (%d) not multiple of 4 pixels.\n", configuration.width);
+                fprintf(stderr, "ERROR:%s: cannot convert images with width (%d) not multiple of 4 pixels.\n", filename_in[i], configuration.width);
                 usage_and_exit(ERL_CANNOT_CONVERT_WIDTH, _argc, _argv);
             }
             configuration.width_tiles = configuration.width >> 2;
         } else {
             if ((configuration.width & 0x07) != 0) {
-                printf("Cannot convert images with width (%d) not multiple of 8 pixels.\n", configuration.width);
+                fprintf(stderr, "ERROR:%s: cannot convert images with width (%d) not multiple of 8 pixels.\n", filename_in[i], configuration.width);
                 usage_and_exit(ERL_CANNOT_CONVERT_WIDTH, _argc, _argv);
             }
             configuration.width_tiles = configuration.width >> 3;
@@ -651,13 +651,13 @@ int main(int _argc, char *_argv[]) {
 
         if (configuration.multicolor) {
             if ((configuration.height & 0x03) != 0) {
-                printf("Cannot convert images with height (%d) not multiple of 8 pixels.\n", configuration.height);
+                fprintf(stderr, "ERROR:%s: cannot convert images with height (%d) not multiple of 8 pixels.\n", filename_in[i], configuration.height);
                 usage_and_exit(ERL_CANNOT_CONVERT_HEIGHT, _argc, _argv);
             }
             configuration.height_tiles = configuration.height >> 3;
         } else {
             if ((configuration.height & 0x07) != 0) {
-                printf("Cannot convert images with height (%d) not multiple of 8 pixels.\n", configuration.height);
+                fprintf(stderr, "ERROR:%s: cannot convert images with height (%d) not multiple of 8 pixels.\n", filename_in[i], configuration.height);
                 usage_and_exit(ERL_CANNOT_CONVERT_HEIGHT, _argc, _argv);
             }
             configuration.height_tiles = configuration.height >> 3;
@@ -665,7 +665,7 @@ int main(int _argc, char *_argv[]) {
 
         if (configuration.multicolor) {
             if (extract_color_palette(source, &configuration, palette, 256) > 4) {
-                printf("Cannot convert images with more than 4 colors.\n");
+                fprintf(stderr, "ERROR:%s: cannot convert images with more than 4 colors.\n", filename_in[i]);
                 usage_and_exit(ERL_CANNOT_CONVERT_COLORS, _argc, _argv);
             }
             if (verbose && debug) {
@@ -753,7 +753,7 @@ int main(int _argc, char *_argv[]) {
 
     FILE *handle = fopen(filename_out, "w+b");
     if (handle == NULL) {
-        printf("Unable to open file %s\n", filename_out);
+        fprintf(stderr, "ERROR:: unable to open output file '%s'.\n", filename_out);
         usage_and_exit(ERL_CANNOT_OPEN_OUTPUT, _argc, _argv);
     }
 
@@ -765,7 +765,7 @@ int main(int _argc, char *_argv[]) {
         sprintf(buffer, "%d", 0);
         FILE* handle = fopen(filename_header, "w+t");
         if (handle == NULL) {
-            printf("Unable to open file %s\n", filename_header);
+            fprintf(stderr, "ERROR:: unable to open header file %s\n", filename_header);
             usage_and_exit(ERL_CANNOT_OPEN_HEADER, _argc, _argv);
         }
         if (configuration.bank > 0) {
